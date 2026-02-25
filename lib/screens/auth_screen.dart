@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:taskati/models/user_model.dart';
 import 'package:taskati/screens/home_screen.dart';
 import 'package:taskati/widgets/app_bottom.dart';
 
@@ -24,6 +26,33 @@ class _AuthScreenState extends State<AuthScreen> {
   void pickImageFromGallery() async {
     photo = await picker.pickImage(source: ImageSource.gallery);
     setState(() {});
+  }
+
+  TextEditingController nameController = TextEditingController();
+  addUser() async {
+    if (nameController.text.isNotEmpty) {
+      var myBox = Hive.box<UserModel>('user');
+      await myBox.clear();
+      myBox
+          .add(UserModel(image: photo?.path ?? "", name: nameController.text))
+          .then((value) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (c) =>
+                    HomeScreen(name: nameController.text, photo: photo),
+              ),
+              (route) => false,
+            );
+          })
+          .catchError((e) {
+            print('Error $e');
+          });
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter your name')));
+    }
   }
 
   @override
@@ -71,9 +100,13 @@ class _AuthScreenState extends State<AuthScreen> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.blue.shade300, width: 2),
               ),
-              child: TextField(
-                onChanged: (value) {
-                  name = value;
+              child: TextFormField(
+                controller: nameController,
+                onTapOutside: (value) {
+                  FocusScope.of(context).unfocus();
+                },
+                validator: (v) {
+                  return null;
                 },
                 decoration: InputDecoration(
                   hintText: 'Enter Your Name',
@@ -85,12 +118,22 @@ class _AuthScreenState extends State<AuthScreen> {
             AppBottom(
               title: 'Create account',
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => HomeScreen(name: name, photo: photo),
-                  ),
-                );
+                if (photo == null) {
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      return AlertDialog(
+                        title: Text('Error!', textAlign: TextAlign.center),
+                        content: Text(
+                          'Image is required',
+                          textAlign: TextAlign.center,
+                        ),
+                      );
+                    },
+                  );
+                  return;
+                }
+                addUser();
               },
             ),
           ],
